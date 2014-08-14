@@ -1,0 +1,13 @@
+Flask==0.10.1
+Jinja2==2.7.3
+MarkupSafe==0.23
+Werkzeug==0.9.6
+amqp==1.4.6
+anyjson==0.3.3
+argparse==1.2.1
+billiard==3.3.0.18
+celery==3.1.13
+itsdangerous==0.24
+kombu==3.0.21
+pytz==2014.4
+wsgiref==0.1.2
