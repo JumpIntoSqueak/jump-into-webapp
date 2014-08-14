@@ -1,27 +1,35 @@
-from flask import Flask, url_for
+from flask import Flask, url_for, redirect
 import subprocess
 import random
 
 from celery_task import make_celery
 
-
 app = Flask("webapp")
 app.config.update(
     CELERY_BROKER_URL = 'sqla+sqlite:///celerydb.sqlite',
-    #CELERY_RESULT_BACKEND = 'sqla+sqlite:///results.sqlite'
+    CELERY_RESULT_BACKEND = 'db+sqlite:///results.sqlite'
 )
 celery = make_celery(app)
 
 @app.route('/<user>/<repository>')
 def github(user, repository):
-	live_instace.delay(user, repository)
-	return 'session is firing up'
+	result = live_instace.delay(user, repository)
+	return redirect(url_for('status_for', id=result.id))
+
+@app.route('/status/<id>')
+def status_for(id):
+	r = live_instace.AsyncResult(id)
+	if r.ready():
+		return redirect('http://localhost:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port='+
+			str(r.get()))
+	else:
+		return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
 
 @celery.task(track_started=True)
 def live_instace(user, repository):
 	#xx check if repository exists
 	commit = build_image(user, repository)
-	run_image(user, repository, commit)
+	return run_image(user, repository, commit)
 
 def build_image(user, repository, commit="HEAD"):
 	project = "%s/%s" % (user, repository)
@@ -50,6 +58,8 @@ def run_image(user, repository, commit):
 		print port
 	except subprocess.CalledProcessError as e:
 		print "[ERROR] Could not start image: " + str(e)
+
+	return port
 
 # xx delete container
 
