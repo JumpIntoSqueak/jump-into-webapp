@@ -45,7 +45,6 @@ def build_image(user, repository, commit="HEAD"):
 	return commit
 
 def run_image(user, repository, commit):
-	#xx limit to 10% CPU share
 	#xx limit to 50 parallel sessions
 	project = "%s/%s" % (user, repository)
 	#xx choose free instance name
@@ -57,6 +56,7 @@ def run_image(user, repository, commit):
 		subprocess.check_call([	"sudo", "docker.io", "run", "-d", 
 								"--name", instance,
 								"-p", port+":80",
+								"-c 100" # equals 10% cpu shares
 								project.lower() + ":" + commit])
 		print port
 	except subprocess.CalledProcessError as e:
