@@ -13,6 +13,7 @@ celery = make_celery(app)
 
 @app.route('/<user>/<repository>')
 def github(user, repository):
+	#xx check if authorized
 	result = live_instace.delay(user, repository)
 	return redirect(url_for('status_for', id=result.id))
 
@@ -44,6 +45,8 @@ def build_image(user, repository, commit="HEAD"):
 	return commit
 
 def run_image(user, repository, commit):
+	#xx limit to 10% CPU share
+	#xx limit to 50 parallel sessions
 	project = "%s/%s" % (user, repository)
 	#xx choose free instance name
 	instance = user + "-" + repository + "-" + str(random.randint(1, 100)) + "-" + commit
@@ -61,7 +64,13 @@ def run_image(user, repository, commit):
 
 	return port
 
+# xx shutdown after 1h
 # xx delete container
+
+#xx provide link to DockerImage
+
+#XX integrate SWAUtils into baseImage so that WIn user can use it
+
 
 if __name__ == '__main__':
 	with app.test_request_context():
