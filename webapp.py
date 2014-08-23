@@ -86,7 +86,7 @@ def run_image(user, repository, commit):
 	except subprocess.CalledProcessError as e:
 		print "[ERROR] Could not start image: " + str(e)
 
-	delete_instance.apply_async([instance], countdown=60)
+	delete_instance.apply_async([instance], countdown=3660)
 	return port
 
 # xx shutdown after 1h
