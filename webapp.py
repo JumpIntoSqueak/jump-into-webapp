@@ -14,11 +14,21 @@ celery = make_celery(app)
 
 @app.route('/<user>/<repository>')
 def github(user, repository):
-	#xx check if authorized
+	if not repository_allowed(user, repository):
+		return "repository not allowed"
 	if not repository_exists(user, repository):
 		return "repository does not exist"
+	return ""
 	result = live_instace.delay(user, repository)
 	return redirect(url_for('status_for', id=result.id))
+
+def repository_allowed(user, repository):
+	repo = "https://github.com/%s/%s" % (user, repository)
+	for r in GH_REPOSITORIES:
+		if repo.startswith(r):
+			print repo + " starts with " + r
+			return True
+	return False
 
 def repository_exists(user, repository):
 	url = "/" + user + "/" + repository
@@ -99,15 +109,16 @@ def run_image(user, repository, commit):
 	delete_instance.apply_async([instance], countdown=3660)
 	return port
 
-# xx shutdown after 1h
-# xx delete container
-
 #xx provide link to DockerImage
 
 #XX integrate SWAUtils into baseImage so that WIn user can use it
 
 
 if __name__ == '__main__':
+	with open('github/allowed_repositories') as f:
+		GH_REPOSITORIES = f.read().splitlines()
+		GH_REPOSITORIES = [r for r in GH_REPOSITORIES if r.strip() != '']
+
 	with app.test_request_context():
 		print url_for('github', user='hubx', repository='SWA-BAttack')
 		print repository_exists('hubx', 'SWA-BAttack')
