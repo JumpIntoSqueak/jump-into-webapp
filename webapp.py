@@ -56,13 +56,23 @@ def live_instace(user, repository):
 	commit = build_image(user, repository)
 	return run_image(user, repository, commit)
 
-def build_image(user, repository, commit="HEAD"):
+def build_image_cache(user, repository, commit):
 	project = "%s/%s" % (user, repository)
-	#xx check if commit already has been built
-	#sudo docker.io images | grep hubx/swa-battack | grep head
+
+	p = subprocess.check_output(['sudo', "docker.io", "images"])
+	for line in p.split('\n'):
+		if project.lower() in line:
+			if ' ' + commit + ' ' in line:
+				print "cache hit for", project, ":", commit
+				return
+				#XX add real commit, HEAD will result in false positives cache hits
+	subprocess.check_call(["sudo", "docker.io", "build", "-t", project.lower() + ":" + commit,
+							"https://github.com/" + project + ".git"])
+
+def build_image(user, repository, commit="HEAD"):
 	try:
-		subprocess.check_call(["sudo", "docker.io", "build", "-t", project.lower() + ":" + commit, 
-								"https://github.com/" + project + ".git"])
+		build_image_cache(user, repository, commit)
+
 	except subprocess.CalledProcessError as e:
 		print "[ERROR] Could not build image: " + str(e)
 
