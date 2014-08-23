@@ -42,6 +42,16 @@ def status_for(id):
 		return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
 
 @celery.task(track_started=True)
+def delete_instance(instance):
+	try:
+		subprocess.check_call([	"sudo", "docker.io", "stop",
+								instance])
+		subprocess.check_call([	"sudo", "docker.io", "rm",
+								instance])
+	except subprocess.CalledProcessError as e:
+		print "[ERROR] Could not stop image: " + str(e)
+
+@celery.task(track_started=True)
 def live_instace(user, repository):
 	commit = build_image(user, repository)
 	return run_image(user, repository, commit)
@@ -76,6 +86,7 @@ def run_image(user, repository, commit):
 	except subprocess.CalledProcessError as e:
 		print "[ERROR] Could not start image: " + str(e)
 
+	delete_instance.apply_async([instance], countdown=60)
 	return port
 
 # xx shutdown after 1h
