@@ -18,7 +18,6 @@ def github(user, repository):
 		return "repository not allowed"
 	if not repository_exists(user, repository):
 		return "repository does not exist"
-	return ""
 	result = live_instace.delay(user, repository)
 	return redirect(url_for('status_for', id=result.id))
 
@@ -110,9 +109,8 @@ def run_image(user, repository, commit):
 	return port
 
 #xx provide link to DockerImage
-
 #XX integrate SWAUtils into baseImage so that WIn user can use it
-
+#tests
 
 if __name__ == '__main__':
 	with open('github/allowed_repositories') as f:
