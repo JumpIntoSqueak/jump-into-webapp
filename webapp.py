@@ -1,6 +1,7 @@
 from flask import Flask, url_for, redirect
 import subprocess
 import random
+import httplib
 
 from celery_task import make_celery
 
@@ -14,8 +15,22 @@ celery = make_celery(app)
 @app.route('/<user>/<repository>')
 def github(user, repository):
 	#xx check if authorized
+	if not repository_exists(user, repository):
+		return "repository does not exist"
 	result = live_instace.delay(user, repository)
 	return redirect(url_for('status_for', id=result.id))
+
+def repository_exists(user, repository):
+	url = "/" + user + "/" + repository
+	try:
+		conn = httplib.HTTPSConnection("github.com")
+		conn.request("HEAD", url)
+		r = conn.getresponse()
+		r.read()
+		return 200 == r.status
+	except StandardError as e:
+		print e
+		return None
 
 @app.route('/status/<id>')
 def status_for(id):
@@ -28,7 +43,6 @@ def status_for(id):
 
 @celery.task(track_started=True)
 def live_instace(user, repository):
-	#xx check if repository exists
 	commit = build_image(user, repository)
 	return run_image(user, repository, commit)
 
@@ -75,5 +89,7 @@ def run_image(user, repository, commit):
 if __name__ == '__main__':
 	with app.test_request_context():
 		print url_for('github', user='hubx', repository='SWA-BAttack')
+		print repository_exists('hubx', 'SWA-BAttack')
+		print repository_exists('hubx', 'SWA-BAttacks')
 	app.run(debug=True)
 
