@@ -1,7 +1,9 @@
 from flask import Flask, url_for, redirect
+from flask import Response, stream_with_context
 import subprocess
 import random
 import httplib
+import requests
 
 from celery_task import make_celery
 
@@ -49,6 +51,18 @@ def status_for(id):
 			str(r.get()))
 	else:
 		return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
+
+@app.route('/image/<id>')
+def get_image_for(id):
+	r = live_instace.AsyncResult(id)
+	if r.ready():
+		req = requests.get("http://localhost:"+str(int(r.get())+1)+"/Squeak4.5-13680.image", stream = True)
+   		return Response(stream_with_context(req.iter_content()), content_type = req.headers['content-type'])
+   	return "not ready yet"
+
+@app.route('/changes/<id>')
+def get_changes_for(id):
+	pass
 
 @celery.task(track_started=True)
 def delete_instance(instance):
@@ -98,7 +112,8 @@ def run_image(user, repository, commit):
 	try:
 		subprocess.check_call([	"sudo", "docker.io", "run", "-d", 
 								"--name", instance,
-								"-p", port+":80",
+								"-p", port+":8080",
+								"-p", str(int(port)+1) + ":80",
 								"-c", "100", # equals 10% cpu shares
 								project.lower() + ":" + commit])
 		print port
@@ -109,13 +124,14 @@ def run_image(user, repository, commit):
 	return port
 
 #xx provide link to DockerImage
-#XX integrate SWAUtils into baseImage so that WIn user can use it
 #tests
+#replace http lib
 
 if __name__ == '__main__':
 	with open('github/allowed_repositories') as f:
 		GH_REPOSITORIES = f.read().splitlines()
 		GH_REPOSITORIES = [r for r in GH_REPOSITORIES if r.strip() != '']
+
 
 	with app.test_request_context():
 		print url_for('github', user='hubx', repository='SWA-BAttack')
