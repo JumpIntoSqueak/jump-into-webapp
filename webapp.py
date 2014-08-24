@@ -1,9 +1,7 @@
 from flask import Flask, url_for, redirect
-from flask import Response, stream_with_context
 import subprocess
 import random
 import httplib
-import requests
 
 from celery_task import make_celery
 
@@ -48,7 +46,7 @@ def status_for(id):
 	r = live_instace.AsyncResult(id)
 	if r.ready():
 		return redirect('http://localhost:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port='+
-			str(r.get()))
+			str(r.get())+"&id="+id)
 	else:
 		return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
 
@@ -56,13 +54,15 @@ def status_for(id):
 def get_image_for(id):
 	r = live_instace.AsyncResult(id)
 	if r.ready():
-		req = requests.get("http://localhost:"+str(int(r.get())+1)+"/Squeak4.5-13680.image", stream = True)
-   		return Response(stream_with_context(req.iter_content()), content_type = req.headers['content-type'])
+		return redirect("http://localhost:"+str(int(r.get())+1)+"/Squeak4.5-13680.image")
    	return "not ready yet"
 
 @app.route('/changes/<id>')
 def get_changes_for(id):
-	pass
+	r = live_instace.AsyncResult(id)
+	if r.ready():
+		return redirect("http://localhost:"+str(int(r.get())+1)+"/Squeak4.5-13680.changes")
+	return "not ready yet"
 
 @celery.task(track_started=True)
 def delete_instance(instance):
