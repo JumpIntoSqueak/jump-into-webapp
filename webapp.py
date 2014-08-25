@@ -23,7 +23,7 @@ MAX_PORT = 49151
 MAX_INSTANCES = 50
 
 DOCKER_HOST = 'localhost'
-NOVNC_HOST = 'localhost'
+NOVNC_HOST = 'localhost:5000'
 
 
 @app.route('/<user>/<repository>')
@@ -67,7 +67,7 @@ def status_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
         return redirect(
-            'http://{0:s}:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port={1:d}&id={2:s}'.format(
+            'http://{0:s}/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port={1:d}&id={2:s}'.format(
                 NOVNC_HOST, r.get()['VNCPort'], id))
     else:
         return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
