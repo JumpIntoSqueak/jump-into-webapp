@@ -3,6 +3,7 @@ import subprocess
 import random
 import httplib
 import docker
+from requests.exceptions import Timeout
 
 from celery_task import make_celery
 
@@ -90,14 +91,16 @@ def get_changes_for(id):
 
 
 @celery.task(track_started=True)
-def delete_instance(instance):
+def delete_instance(container):
+    client = get_docker_connection()
     try:
-        subprocess.check_call(["sudo", "docker.io", "stop",
-                               instance])
-        subprocess.check_call(["sudo", "docker.io", "rm",
-                               instance])
-    except subprocess.CalledProcessError as e:
-        print "[ERROR] Could not stop image: " + str(e)
+        client.stop(container, timeout=1.5)
+    except Timeout:
+        pass
+    try:
+        client.remove_container(container)
+    except Timeout:
+        pass
 
 
 @celery.task(track_started=True)
@@ -159,7 +162,7 @@ def run_image(user, repository, commit):
                    entrypoint=None, cpu_shares=100)
     client.start(container, port_bindings={VNCPORT: vnc_port, HTTPPORT: http_port})
 
-    delete_instance.apply_async([instance_name], countdown=3660)
+    delete_instance.apply_async([container], countdown=3660)
     return {'HTTPPort': http_port, 'VNCPort': vnc_port}
 
 def get_docker_connection():
