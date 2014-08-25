@@ -66,7 +66,7 @@ def status_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
         return redirect(
-            'http://{0:s}:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port={1:s}&id={2:s}'.format(
+            'http://{0:s}:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port={1:d}&id={2:s}'.format(
                 NOVNC_HOST, r.get()['VNCPort'], id))
     else:
         return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
@@ -76,7 +76,7 @@ def status_for(id):
 def get_image_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
-        return redirect('http://{0:s}:{1:s}/Squeak4.5-13680.image'.format(DOCKER_HOST, r.get()['HTTPPort']))
+        return redirect('http://{0:s}:{1:d}/Squeak4.5-13680.image'.format(DOCKER_HOST, r.get()['HTTPPort']))
     return "not ready yet"
 
 
@@ -84,7 +84,7 @@ def get_image_for(id):
 def get_changes_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
-        return redirect('http://{0:s}:{1:s}/Squeak4.5-13680.changes'.format(DOCKER_HOST, r.get()['HTTPPort']))
+        return redirect('http://{0:s}:{1:d}/Squeak4.5-13680.changes'.format(DOCKER_HOST, r.get()['HTTPPort']))
     return "not ready yet"
 
 
