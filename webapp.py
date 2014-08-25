@@ -24,6 +24,7 @@ MAX_INSTANCES = 50
 DOCKER_HOST = 'localhost'
 NOVNC_HOST = 'localhost'
 
+
 @app.route('/<user>/<repository>')
 def github(user, repository):
     if len(running_instances()) >= MAX_INSTANCES:
@@ -113,7 +114,7 @@ def build_image_cache(user, repository, commit):
             if ' ' + commit + ' ' in line:
                 print "cache hit for", project, ":", commit
                 return
-            # XX add real commit, HEAD will result in false positives cache hits
+                # XX add real commit, HEAD will result in false positives cache hits
     subprocess.check_call(["sudo", "docker.io", "build", "-t", project.lower() + ":" + commit,
                            "https://github.com/" + project + ".git"])
 
@@ -129,10 +130,11 @@ def build_image(user, repository, commit="HEAD"):
 
 
 def choose_name(user, repository, commit):
-    instance = user + "-" + repository + "-" + str(random.randint(1, 2*MAX_INSTANCES)) + "-" + commit
+    instance = user + "-" + repository + "-" + str(random.randint(1, 2 * MAX_INSTANCES)) + "-" + commit
     if instance in [e['Name'] for e in running_instances()]:
         instance = choose_name(user, repository, commit)
     return instance
+
 
 def choose_port():
     ports = used_ports()
@@ -140,6 +142,7 @@ def choose_port():
     if http_port in ports or vnc_port in ports:
         http_port, vnc_port = choose_port()
     return http_port, vnc_port
+
 
 def run_image(user, repository, commit):
     project = "%s/%s" % (user, repository)
@@ -182,9 +185,11 @@ def running_instances():
         results.append(e)
     return results
 
+
 def used_ports():
     instances = running_instances()
     return [e['HTTPPort'] for e in instances] + [e['VNCPort'] for e in instances]
+
 
 if __name__ == '__main__':
     with open('github/allowed_repositories') as f:
