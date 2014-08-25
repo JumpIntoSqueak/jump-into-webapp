@@ -135,8 +135,6 @@ def run_image(user, repository, commit):
     delete_instance.apply_async([instance], countdown=3660)
     return port
 
-# tests
-
 if __name__ == '__main__':
     with open('github/allowed_repositories') as f:
         GH_REPOSITORIES = f.read().splitlines()
