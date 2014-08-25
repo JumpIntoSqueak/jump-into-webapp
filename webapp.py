@@ -19,13 +19,18 @@ HTTPPORT = 80
 MIN_PORT = 1024
 MAX_PORT = 49151
 
+MAX_INSTANCES = 50
 
 @app.route('/<user>/<repository>')
 def github(user, repository):
+    if len(running_instances()) >= MAX_INSTANCES:
+        return "Maximum number of concurrent instances reached"
+
     if not repository_allowed(user, repository):
-        return "repository not allowed"
+        return "Repository not allowed"
     if not repository_exists(user, repository):
-        return "repository does not exist"
+        return "Repository does not exist"
+
     result = live_instace.delay(user, repository)
     return redirect(url_for('status_for', id=result.id))
 
