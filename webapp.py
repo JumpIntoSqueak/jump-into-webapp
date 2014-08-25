@@ -12,6 +12,13 @@ app.config.update(
 )
 celery = make_celery(app)
 
+# Private Ports for Docker Instances
+VNCPORT = 8080
+HTTPPORT = 80
+
+MIN_PORT = 1024
+MAX_PORT = 49151
+
 
 @app.route('/<user>/<repository>')
 def github(user, repository):
@@ -51,7 +58,7 @@ def status_for(id):
     if r.ready():
         return redirect(
             'http://localhost:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port=' +
-            str(r.get()) + "&id=" + id)
+            str(r.get()['VNCPort']) + "&id=" + id)
     else:
         return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
 
@@ -60,7 +67,7 @@ def status_for(id):
 def get_image_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
-        return redirect("http://localhost:" + str(int(r.get()) + 1) + "/Squeak4.5-13680.image")
+        return redirect("http://localhost:" + str(r.get()['HTTPPort']) + "/Squeak4.5-13680.image")
     return "not ready yet"
 
 
@@ -68,7 +75,7 @@ def get_image_for(id):
 def get_changes_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
-        return redirect("http://localhost:" + str(int(r.get()) + 1) + "/Squeak4.5-13680.changes")
+        return redirect("http://localhost:" + str(r.get()['HTTPPort']) + "/Squeak4.5-13680.changes")
     return "not ready yet"
 
 
@@ -113,27 +120,63 @@ def build_image(user, repository, commit="HEAD"):
     return commit
 
 
-def run_image(user, repository, commit):
-    # xx limit to 50 parallel sessions
-    project = "%s/%s" % (user, repository)
-    # xx choose free instance name
-    instance = user + "-" + repository + "-" + str(random.randint(1, 100)) + "-" + commit
+def choose_name(user, repository, commit):
+    instance = user + "-" + repository + "-" + str(random.randint(1, 2*MAX_INSTANCES)) + "-" + commit
+    if instance in [e['Name'] for e in running_instances()]:
+        instance = choose_name(user, repository, commit)
+    return instance
 
-    #xx choose free port
-    port = str(random.randint(5900, 15900))
+def choose_port():
+    ports = used_ports()
+    http_port, vnc_port = random.sample(xrange(MIN_PORT, MAX_PORT), 2)
+    if http_port in ports or vnc_port in ports:
+        http_port, vnc_port = choose_port()
+    return http_port, vnc_port
+
+def run_image(user, repository, commit):
+    project = "%s/%s" % (user, repository)
+    instance = choose_name(user, repository, commit)
+    http_port, vnc_port = choose_port()
+
     try:
         subprocess.check_call(["sudo", "docker.io", "run", "-d",
                                "--name", instance,
-                               "-p", port + ":8080",
-                               "-p", str(int(port) + 1) + ":80",
+                               "-p", str(vnc_port) + ":8080",
+                               "-p", str(http_port) + ":80",
                                "-c", "100",  # equals 10% cpu shares
                                project.lower() + ":" + commit])
-        print port
+        print http_port, vnc_port
+
     except subprocess.CalledProcessError as e:
         print "[ERROR] Could not start image: " + str(e)
 
     delete_instance.apply_async([instance], countdown=3660)
-    return port
+    return {'HTTPPort': http_port, 'VNCPort': vnc_port}
+
+
+def running_instances():
+    import docker
+
+    client = docker.Client(base_url='unix://var/run/docker.sock',
+                           version='1.14',
+                           timeout=10)
+    containers = client.containers(quiet=False, all=False, trunc=True, latest=False, since=None,
+                                   before=None, limit=-1)
+    results = []
+    for c in containers:
+        e = {'Name': c['Names'][0]}
+        if len(c['Ports']) != 2:
+            continue  # instance started outside of webapp
+        e['HTTPPort'] = c['Ports'][0]['PublicPort']
+        e['VNCPort'] = c['Ports'][1]['PublicPort']
+        if c['Ports'][0]['PrivatePort'] == VNCPORT:
+            e['HTTPPort'], e['VNCPort'] = e['VNCPort'], e['HTTPPort']
+        results.append(e)
+    return results
+
+def used_ports():
+    instances = running_instances()
+    return [e['HTTPPort'] for e in instances] + [e['VNCPort'] for e in instances]
 
 if __name__ == '__main__':
     with open('github/allowed_repositories') as f:
