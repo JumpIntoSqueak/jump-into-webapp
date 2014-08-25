@@ -3,6 +3,7 @@ import subprocess
 import random
 import httplib
 import docker
+from docker.errors import APIError
 from requests.exceptions import Timeout
 
 from celery_task import make_celery
@@ -156,11 +157,14 @@ def run_image(user, repository, commit):
     http_port, vnc_port = choose_port()
 
     client = get_docker_connection()
-    container = client.create_container(image, hostname=instance_name,
-                   detach=True, mem_limit="512m",
-                   ports=[VNCPORT, HTTPPORT], name=instance_name,
-                   entrypoint=None, cpu_shares=100)
-    client.start(container, port_bindings={VNCPORT: vnc_port, HTTPPORT: http_port})
+    try:
+        container = client.create_container(image, hostname=instance_name,
+                                            detach=True, mem_limit="512m",
+                                            ports=[VNCPORT, HTTPPORT], name=instance_name,
+                                            entrypoint=None, cpu_shares=100)
+        client.start(container, port_bindings={VNCPORT: vnc_port, HTTPPORT: http_port})
+    except APIError as e:
+        print e, repr(running_instances()), instance_name
 
     delete_instance.apply_async([container], countdown=3660)
     return {'HTTPPort': http_port, 'VNCPort': vnc_port}
