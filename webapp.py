@@ -2,6 +2,7 @@ from flask import Flask, url_for, redirect
 import subprocess
 import random
 import httplib
+import docker
 
 from celery_task import make_celery
 
@@ -146,31 +147,28 @@ def choose_port():
 
 def run_image(user, repository, commit):
     project = "%s/%s" % (user, repository)
-    instance = choose_name(user, repository, commit)
+    image = project.lower() + ":" + commit
+
+    instance_name = choose_name(user, repository, commit)
     http_port, vnc_port = choose_port()
 
-    try:
-        subprocess.check_call(["sudo", "docker.io", "run", "-d",
-                               "--name", instance,
-                               "-p", str(vnc_port) + ":8080",
-                               "-p", str(http_port) + ":80",
-                               "-c", "100",  # equals 10% cpu shares
-                               project.lower() + ":" + commit])
-        print http_port, vnc_port
+    client = get_docker_connection()
+    container = client.create_container(image, hostname=instance_name,
+                   detach=True, mem_limit="512m",
+                   ports=[VNCPORT, HTTPPORT], name=instance_name,
+                   entrypoint=None, cpu_shares=100)
+    client.start(container, port_bindings={VNCPORT: vnc_port, HTTPPORT: http_port})
 
-    except subprocess.CalledProcessError as e:
-        print "[ERROR] Could not start image: " + str(e)
-
-    delete_instance.apply_async([instance], countdown=3660)
+    delete_instance.apply_async([instance_name], countdown=3660)
     return {'HTTPPort': http_port, 'VNCPort': vnc_port}
 
-
-def running_instances():
-    import docker
-
-    client = docker.Client(base_url='unix://var/run/docker.sock',
+def get_docker_connection():
+    return docker.Client(base_url='unix://var/run/docker.sock',
                            version='1.14',
                            timeout=10)
+
+def running_instances():
+    client = get_docker_connection()
     containers = client.containers(quiet=False, all=False, trunc=True, latest=False, since=None,
                                    before=None, limit=-1)
     results = []
