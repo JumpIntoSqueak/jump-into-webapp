@@ -163,8 +163,9 @@ def run_image(user, repository, commit):
 
 def get_docker_connection():
     return docker.Client(base_url='unix://var/run/docker.sock',
-                           version='1.14',
-                           timeout=10)
+                         version='1.14',
+                         timeout=10)
+
 
 def running_instances():
     client = get_docker_connection()
