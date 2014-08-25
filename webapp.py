@@ -21,6 +21,9 @@ MAX_PORT = 49151
 
 MAX_INSTANCES = 50
 
+DOCKER_HOST = 'localhost'
+NOVNC_HOST = 'localhost'
+
 @app.route('/<user>/<repository>')
 def github(user, repository):
     if len(running_instances()) >= MAX_INSTANCES:
@@ -62,8 +65,8 @@ def status_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
         return redirect(
-            'http://localhost:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port=' +
-            str(r.get()['VNCPort']) + "&id=" + id)
+            'http://{0:s}:5000/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port={1:s}&id={2:s}'.format(
+                NOVNC_HOST, r.get()['VNCPort'], id))
     else:
         return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
 
@@ -72,7 +75,7 @@ def status_for(id):
 def get_image_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
-        return redirect("http://localhost:" + str(r.get()['HTTPPort']) + "/Squeak4.5-13680.image")
+        return redirect('http://{0:s}:{1:s}/Squeak4.5-13680.image'.format(DOCKER_HOST, r.get()['HTTPPort']))
     return "not ready yet"
 
 
@@ -80,7 +83,7 @@ def get_image_for(id):
 def get_changes_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
-        return redirect("http://localhost:" + str(r.get()['HTTPPort']) + "/Squeak4.5-13680.changes")
+        return redirect('http://{0:s}:{1:s}/Squeak4.5-13680.changes'.format(DOCKER_HOST, r.get()['HTTPPort']))
     return "not ready yet"
 
 
