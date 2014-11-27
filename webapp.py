@@ -3,8 +3,10 @@ import subprocess
 import random
 import httplib
 import docker
+import ipaddress
 from docker.errors import APIError
 from requests.exceptions import Timeout
+import requests
 
 from celery_task import make_celery
 
@@ -41,6 +43,29 @@ def github(user, repository):
     result = live_instace.delay(user, repository)
     return redirect(url_for('status_for', id=result.id))
 
+@app.route('/hooks/', methods=['POST'])
+def github_cache(user, repository, commit):
+    hook_blocks = requests.get('https://api.github.com/meta').json()['hooks']
+    for block in hook_blocks:
+        ip = ipaddress.ip_address(u'%s' % request.remote_addr)
+        if ipaddress.ip_address(ip) in ipaddress.ip_network(block):
+            break #the remote_addr is within the network range of github
+        else:
+            abort(403)
+    if request.headers.get('X-GitHub-Event') != "push":
+        return "Wrong event type"
+
+     payload = json.loads(request.data)
+
+    repository = payload['repository']['name']
+    user = payload['repository']['owner']['name']
+
+    check_repo = check_repository(user, repository)
+    if check_repo is not True:
+        return check_repo
+
+    update_build_cache_for(user, repository, "HEAD")
+    return "Updating Cache"
 
 def check_repository(user, repository):
     if repository_allowed(user, repository):
