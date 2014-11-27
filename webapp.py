@@ -30,16 +30,24 @@ NOVNC_HOST = 'localhost:5000'
 
 @app.route('/<user>/<repository>')
 def github(user, repository):
+
     if len(running_instances()) >= MAX_INSTANCES:
         return "Maximum number of concurrent instances reached"
 
-    if not repository_allowed(user, repository):
-        return "Repository not allowed"
-    if not repository_exists(user, repository):
-        return "Repository does not exist"
+    check_repo = check_repository(user, repository)
+    if check_repo is not True:
+        return check_repo
 
     result = live_instace.delay(user, repository)
     return redirect(url_for('status_for', id=result.id))
+
+
+def check_repository(user, repository):
+    if repository_allowed(user, repository):
+        return "Repository not allowed"
+    if repository_exists(user, repository):
+        return "Repository does not exist"
+    return True
 
 
 def repository_allowed(user, repository):
