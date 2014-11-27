@@ -117,18 +117,10 @@ def live_instace(user, repository):
     commit = build_image(user, repository)
     return run_image(user, repository, commit)
 
-
-def build_image_cache(user, repository, commit):
+@celery.task
+def update_build_cache_for(user, repository, commit):
     project = "%s/%s" % (user, repository)
-
-    p = subprocess.check_output(['sudo', "docker.io", "images"])
-    for line in p.split('\n'):
-        if project.lower() in line:
-            if ' ' + commit + ' ' in line:
-                print "cache hit for", project, ":", commit
-                return
-                # XX add real commit, HEAD will result in false positives cache hits
-    subprocess.check_call(["sudo", "docker.io", "build", "-t", project.lower() + ":" + commit,
+    subprocess.check_call(["docker", "build", "-t", project.lower() + ":" + commit,
                            "https://github.com/" + project + ".git"])
 
 
@@ -140,6 +132,20 @@ def build_image(user, repository, commit="HEAD"):
         print "[ERROR] Could not build image: " + str(e)
 
     return commit
+
+
+def build_image_cache(user, repository, commit):
+    project = "%s/%s" % (user, repository)
+
+    p = subprocess.check_output(["docker", "images"])
+    for line in p.split('\n'):
+        if project.lower() in line:
+            if ' ' + commit + ' ' in line:
+                print "cache hit for", project, ":", commit
+                return commit
+                # XX add real commit, HEAD will result in false positives cache hits
+    subprocess.check_call(["docker", "build", "-t", project.lower() + ":" + commit,
+                           "https://github.com/" + project + ".git"])
 
 
 def choose_name(user, repository, commit):
