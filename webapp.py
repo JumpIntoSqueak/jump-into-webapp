@@ -1,4 +1,8 @@
-from flask import Flask, url_for, redirect, request, abort
+from flask import Flask, url_for, redirect, request, abort, render_template
+from flask_wtf import Form, RecaptchaField
+from flask_wtf.csrf import CsrfProtect
+from wtforms import TextField
+
 import subprocess
 import random
 import httplib
@@ -15,18 +19,27 @@ from settings import *
 app = Flask("webapp")
 app.config.update(
     CELERY_BROKER_URL='sqla+sqlite:///celerydb.sqlite',
-    CELERY_RESULT_BACKEND='db+sqlite:///results.sqlite'
+    CELERY_RESULT_BACKEND='db+sqlite:///results.sqlite',
+    SECRET_KEY=SECRET_KEY,
+    RECAPTCHA_PUBLIC_KEY=RECAPTCHA_PUBLIC_KEY,
+    RECAPTCHA_PRIVATE_KEY=RECAPTCHA_PRIVATE_KEY
 )
 celery = make_celery(app)
 
 
+class CapchaForm(Form):
+    recaptcha = RecaptchaField()
 
 
-@app.route('/<user>/<repository>')
+@app.route('/<user>/<repository>', methods=('GET', 'POST'))
 def github(user, repository):
-
     if len(running_instances()) >= MAX_INSTANCES:
         return "Maximum number of concurrent instances reached"
+
+    captcha = CapchaForm()
+
+    if captcha.validate_on_submit() == False:
+        return render_template('captcha.html', form=captcha)
 
     check_repo = check_repository(user, repository)
     if check_repo is not True:
@@ -240,5 +253,6 @@ if __name__ == '__main__':
         print url_for('github', user='hubx', repository='SWA-BAttack')
         print repository_exists('hubx', 'SWA-BAttack')
         print repository_exists('hubx', 'SWA-BAttacks')
-    app.run(host='0.0.0.0', port=80, debug=True)
+    CsrfProtect(app)
+    app.run(host='0.0.0.0', port=HTTPPORT, debug=True)
 

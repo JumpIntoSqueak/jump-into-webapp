@@ -1,0 +1,9 @@
+<form method="POST">
+    {{ form.csrf_token }}
+     {% for error in form.recaptcha.errors %}
+        {{ error }}
+    {% endfor %}
+    {{ form.recaptcha }}
+          <input type="submit" value="Submit">
+
+</form>
