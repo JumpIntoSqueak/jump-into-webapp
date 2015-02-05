@@ -135,10 +135,11 @@ def live_instace(user, repository):
     commit = build_image(user, repository)
     return run_image(user, repository, commit)
 
+
 @celery.task
 def update_build_cache_for(user, repository, commit):
     project = "%s/%s" % (user, repository)
-    subprocess.check_call(["docker", "build", "-t", project.lower() + ":" + commit,
+    subprocess.check_call(["docker", "build", "-t", project.lower().replace("-", "_") + ":" + commit,
                            "https://github.com/" + project + ".git"])
 
 
@@ -154,10 +155,11 @@ def build_image(user, repository, commit="HEAD"):
 
 def use_image_cache_for(user, repository, commit):
     project = "%s/%s" % (user, repository)
+    tag = project.lower().replace("-", "_").replace(".", "_")
 
     p = subprocess.check_output(["docker", "images"])
     for line in p.split('\n'):
-        if project.lower() in line:
+        if tag in line:
             if ' ' + commit + ' ' in line:
                 print "cache hit for", project, ":", commit
                 return commit
@@ -181,7 +183,7 @@ def choose_port():
 
 def run_image(user, repository, commit):
     project = "%s/%s" % (user, repository)
-    image = project.lower() + ":" + commit
+    image = project.lower().replace("-", "_") + ":" + commit
 
     instance_name = choose_name(user, repository, commit)
     http_port, vnc_port = choose_port()
