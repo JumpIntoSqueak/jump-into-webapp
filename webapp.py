@@ -1,4 +1,5 @@
 from flask import Flask, url_for, redirect
+from flask import Flask, url_for, redirect, request, abort
 import subprocess
 import random
 import httplib
@@ -9,6 +10,7 @@ from requests.exceptions import Timeout
 import requests
 
 from celery_task import make_celery
+from settings import *
 
 app = Flask("webapp")
 app.config.update(
@@ -17,17 +19,7 @@ app.config.update(
 )
 celery = make_celery(app)
 
-# Private Ports for Docker Instances
-VNCPORT = 8080
-HTTPPORT = 80
 
-MIN_PORT = 1024
-MAX_PORT = 49151
-
-MAX_INSTANCES = 50
-
-DOCKER_HOST = 'localhost'
-NOVNC_HOST = 'localhost:5000'
 
 
 @app.route('/<user>/<repository>')
@@ -41,7 +33,8 @@ def github(user, repository):
         return check_repo
 
     result = live_instace.delay(user, repository)
-    return redirect(url_for('status_for', id=result.id))
+    return redirect('http://' + NOVNC_HOST + url_for('status_for', id=result.id))
+
 
 @app.route('/hooks/', methods=['POST'])
 def github_cache(user, repository, commit):
@@ -102,8 +95,8 @@ def status_for(id):
     r = live_instace.AsyncResult(id)
     if r.ready():
         return redirect(
-            'http://{0:s}/static/noVNC/vnc.html?autoconnect=true&host=localhost&password=1234&path=&port={1:d}&id={2:s}'.format(
-                NOVNC_HOST, r.get()['VNCPort'], id))
+            'http://{0:s}/static/noVNC/vnc.html?autoconnect=true&host={1:s}&password=1234&path=&port={2:d}&id={3:s}'.format(
+                NOVNC_HOST, DOCKER_HOST, r.get()['VNCPort'], id))
     else:
         return '<script>setTimeout(function(){window.location.reload(1);}, 10000);</script>booting up'
 
@@ -202,11 +195,12 @@ def run_image(user, repository, commit):
                                             ports=[VNCPORT, HTTPPORT], name=instance_name,
                                             entrypoint=None, cpu_shares=100)
         client.start(container, port_bindings={VNCPORT: vnc_port, HTTPPORT: http_port})
+        delete_instance.apply_async([container], countdown=3660)
     except APIError as e:
         print e, repr(running_instances()), instance_name
 
-    delete_instance.apply_async([container], countdown=3660)
     return {'HTTPPort': http_port, 'VNCPort': vnc_port}
+
 
 def get_docker_connection():
     return docker.Client(base_url='unix://var/run/docker.sock',
@@ -245,5 +239,5 @@ if __name__ == '__main__':
         print url_for('github', user='hubx', repository='SWA-BAttack')
         print repository_exists('hubx', 'SWA-BAttack')
         print repository_exists('hubx', 'SWA-BAttacks')
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=80, debug=True)
 

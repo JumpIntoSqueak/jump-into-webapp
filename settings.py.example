@@ -1,0 +1,14 @@
+# Private Ports for Docker Instances
+VNCPORT = 8080
+HTTPPORT = 80
+
+MIN_PORT = 1024
+MAX_PORT = 49151
+
+MAX_INSTANCES = 50
+
+DOCKER_HOST = 'localhost'
+NOVNC_HOST = 'localhost:5000'
+
+RECAPTCHA_PUBLIC_KEY = ""
+RECAPTCHA_PRIVATE_KEY 	= ""
