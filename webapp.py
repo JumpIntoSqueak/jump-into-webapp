@@ -37,18 +37,18 @@ def github(user, repository):
 
 
 @app.route('/hooks/', methods=['POST'])
-def github_cache(user, repository, commit):
+def update_github_cache():
     hook_blocks = requests.get('https://api.github.com/meta').json()['hooks']
     for block in hook_blocks:
         ip = ipaddress.ip_address(u'%s' % request.remote_addr)
         if ipaddress.ip_address(ip) in ipaddress.ip_network(block):
-            break #the remote_addr is within the network range of github
+            break  # the remote_addr is within the network range of github
         else:
             abort(403)
-    if request.headers.get('X-GitHub-Event') != "push":
-        return "Wrong event type"
+        if request.headers.get('X-GitHub-Event') != "push":
+            return "Wrong event type"
 
-     payload = json.loads(request.data)
+    payload = json.loads(request.data)
 
     repository = payload['repository']['name']
     user = payload['repository']['owner']['name']
@@ -61,9 +61,9 @@ def github_cache(user, repository, commit):
     return "Updating Cache"
 
 def check_repository(user, repository):
-    if repository_allowed(user, repository):
+    if not repository_allowed(user, repository):
         return "Repository not allowed"
-    if repository_exists(user, repository):
+    if not repository_exists(user, repository):
         return "Repository does not exist"
     return True
 
@@ -144,7 +144,7 @@ def update_build_cache_for(user, repository, commit):
 
 def build_image(user, repository, commit="HEAD"):
     try:
-        build_image_cache(user, repository, commit)
+        use_image_cache_for(user, repository, commit)
 
     except subprocess.CalledProcessError as e:
         print "[ERROR] Could not build image: " + str(e)
@@ -152,7 +152,7 @@ def build_image(user, repository, commit="HEAD"):
     return commit
 
 
-def build_image_cache(user, repository, commit):
+def use_image_cache_for(user, repository, commit):
     project = "%s/%s" % (user, repository)
 
     p = subprocess.check_output(["docker", "images"])
@@ -161,9 +161,7 @@ def build_image_cache(user, repository, commit):
             if ' ' + commit + ' ' in line:
                 print "cache hit for", project, ":", commit
                 return commit
-                # XX add real commit, HEAD will result in false positives cache hits
-    subprocess.check_call(["docker", "build", "-t", project.lower() + ":" + commit,
-                           "https://github.com/" + project + ".git"])
+    update_build_cache_for(user, repository, commit)
 
 
 def choose_name(user, repository, commit):
